@@ -66,31 +66,39 @@ class VibrateUtil {
 @available(iOS 13.0, *)
 private class HapticBase: VibrateProtocol {
 	var engine: CHHapticEngine?
+	var engineStarted = false
 	
 	init?() {
+		startEngine()
+	}
+	
+	private func startEngine() {
 		guard CHHapticEngine.capabilitiesForHardware().supportsHaptics else {
-			return nil
+			return
 		}
 		
 		do {
 			engine = try CHHapticEngine()
 			try engine?.start()
 			
-			handleEngineStop()
-			prepareResetEngine()
+			EngineStopHandler()
+			EngineResetHandler()
+			
+			engineStarted = true
 		} catch {
 			print("There was an error creating the engine: \(error.localizedDescription)")
-			return nil
+			return
 		}
 	}
 	
-	private func handleEngineStop() {
+	private func EngineStopHandler() {
 		// The engine stopped; print out why
 		engine?.stoppedHandler = { reason in
 			print("The engine stopped: \(reason)")
+			self.engineStarted = false
 		}
 	}
-	private func prepareResetEngine() {
+	private func EngineResetHandler() {
 		// If something goes wrong, attempt to restart the engine immediately
 		engine?.resetHandler = { [weak self] in
 			print("The engine reset")
@@ -106,6 +114,11 @@ private class HapticBase: VibrateProtocol {
 		guard CHHapticEngine.capabilitiesForHardware().supportsHaptics else {
 			return
 		}
+		
+		if !engineStarted {
+			startEngine()
+		}
+		
 		var params = [CHHapticEventParameter]()
 		if let intense = intensityValue {
 			let intensity = CHHapticEventParameter(parameterID: .hapticIntensity, value: intense)
